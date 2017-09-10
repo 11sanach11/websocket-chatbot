@@ -58,10 +58,10 @@ public class ChatbotHandler {
                         message.setMessage(String.join("\n", messageText));
                         log.info("Sending message: {}", message);
                         session.getAsyncRemote().sendText(gson.toJson(message));
-                        Thread.sleep(frequency);
                     } catch (RuntimeException runtimeException) {
                         log.warn("Exception while sending message: {}: {}", message, runtimeException.getMessage());
                     }
+                    Thread.sleep(frequency);
                 }
             } catch (InterruptedException e) {
                 log.info("Close client... Reason: {}", e.getMessage());
