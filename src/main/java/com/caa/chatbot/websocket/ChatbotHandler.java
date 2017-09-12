@@ -11,6 +11,8 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import javax.annotation.PostConstruct;
+import javax.websocket.CloseReason;
+import javax.websocket.DeploymentException;
 import javax.websocket.Session;
 import java.io.IOException;
 import java.net.URI;
@@ -34,7 +36,7 @@ public class ChatbotHandler {
     private String messageName;
 
     @Value("${chatbot.message.text}")
-    private List<String> messageText;
+    private String[] messageText;
 
     @Autowired
     private ChatbotReconnectHandler chatbotReconnectHandler;
@@ -46,10 +48,11 @@ public class ChatbotHandler {
     public void init() {
         log.info("Init handler service. Parameters: frequency: {}, uri: {}", frequency, uri);
         Thread thread = new Thread(() -> {
-            ClientManager clientManager = ClientManager.createClient();
-            clientManager.getProperties().put(ClientProperties.RECONNECT_HANDLER, chatbotReconnectHandler);
-            try (Session session = clientManager.connectToServer(WebSocketHandler.class, uri)) {
+            Session session = null;
+            try {
                 int firstIndex = 0;
+                ClientManager clientManager = ClientManager.createClient();
+                clientManager.getProperties().put(ClientProperties.RECONNECT_HANDLER, chatbotReconnectHandler);
                 while (true) {
                     Message message = new Message();
                     try {
@@ -57,6 +60,7 @@ public class ChatbotHandler {
                         message.setName(messageName);
                         message.setMessage(String.join("\n", messageText));
                         log.info("Sending message: {}", message);
+                        session = getLiveSession(session, uri, clientManager);
                         session.getAsyncRemote().sendText(gson.toJson(message));
                     } catch (RuntimeException runtimeException) {
                         log.warn("Exception while sending message: {}: {}", message, runtimeException.getMessage());
@@ -67,9 +71,25 @@ public class ChatbotHandler {
                 log.info("Close client... Reason: {}", e.getMessage());
             } catch (Exception e) {
                 log.error(e.getMessage(), e);
+            } finally {
+                if (session != null && session.isOpen()) {
+                    try {
+                        session.close();
+                    } catch (IOException e) {
+                        log.error("Can't close session: {}, {}", e.getMessage(), e);
+                    }
+                }
             }
         });
         thread.setDaemon(true);
         thread.start();
+    }
+
+    private Session getLiveSession(Session session, URI uri, ClientManager clientManager) throws IOException, DeploymentException, InterruptedException {
+        if (session == null || !session.isOpen()) {
+            return clientManager.connectToServer(WebSocketHandler.class, uri);
+        } else {
+            return session;
+        }
     }
 }

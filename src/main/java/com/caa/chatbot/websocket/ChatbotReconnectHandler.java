@@ -16,27 +16,9 @@ public class ChatbotReconnectHandler extends ClientManager.ReconnectHandler {
     private int counter = 0;
 
     @Override
-    public boolean onDisconnect(CloseReason closeReason) {
-        counter++;
-        if (counter <= 3) {
-            log.warn("### Reconnecting... (reconnect count: {})", counter);
-            return true;
-        } else {
-            return false;
-        }
-    }
-
-    @Override
     public boolean onConnectFailure(Exception exception) {
         counter++;
-        if (counter <= 3) {
-            log.warn("### Reconnecting... (reconnect count: {}) {}", counter, exception.getMessage());
-
-            // Thread.sleep(...) or something other "sleep-like" expression can be put here - you might want
-            // to do it here to avoid potential DDoS when you don't limit number of reconnects.
-            return true;
-        } else {
-            return false;
-        }
+        log.warn("### Reconnecting after connect failure... (reconnect count: {}) {}", counter, exception.getMessage());
+        return true;
     }
 }
